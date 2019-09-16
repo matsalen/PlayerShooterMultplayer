@@ -1,24 +1,56 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 
-public class HP : MonoBehaviour
+public class HP : NetworkBehaviour
 {
     [SerializeField] const int MaxHP = 100;
-    [SerializeField] int AtualHP;
+    [SyncVar (hook = "AtualizaHP")] [SerializeField] int HPAtual;
+    [SerializeField] RectTransform BarraHP;
+    [SerializeField] bool respawn;
+
+    NetworkStartPosition[] pontosSpawn;
 
     private void Start()
     {
-        AtualHP = MaxHP;
+        HPAtual = MaxHP;
+        if (isLocalPlayer) pontosSpawn = FindObjectsOfType<NetworkStartPosition>();
     }
 
     public void Damage(int quantidade)
     {
-        AtualHP -= quantidade;
-        if (AtualHP <= 0)
+        if (!isServer) return;
+
+        HPAtual -= quantidade;
+
+        if (HPAtual <= 0)
         {
-            AtualHP = 0;
-            Debug.Log("Dead = true");
+            if (respawn)
+            {
+                HPAtual = MaxHP;
+                RpcRespawn();
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
         }
+    }
+
+    private void AtualizaHP(int vida)
+    {
+        BarraHP.sizeDelta = new Vector2(vida * 2, BarraHP.sizeDelta.y);
+    }
+
+    [ClientRpc]
+    void RpcRespawn()
+    {
+        Vector3 posicaoSpawn = Vector3.zero;
+        if (pontosSpawn != null && pontosSpawn.Length > 0)
+        {
+            posicaoSpawn = pontosSpawn[Random.Range(0, pontosSpawn.Length)].transform.position;
+        }
+        transform.position = posicaoSpawn;
     }
 }
